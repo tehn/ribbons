@@ -5,6 +5,10 @@
 -- K3 emulates arc key
 --    for old edition arcs
 
+engine.name = 'PolyPerc'
+hs = include('lib/halfsecond')
+MusicUtil = require "musicutil"
+
 a = arc.connect(1)
 out = midi.connect(1)
 p = params
@@ -32,6 +36,30 @@ function init()
 	p:set_action("range",regen)
 	p:set_action("offset",regen)
 	p:set_action("scale",regen)
+
+	params:add_group("synth", 7)
+  cs_AMP = controlspec.new(0,1,'lin',0,0.5,'')
+  params:add{type="control",id="amp",controlspec=cs_AMP,
+    action=function(x) engine.amp(x) end}
+	cs_PW = controlspec.new(0,100,'lin',0,50,'%')
+  params:add{type="control",id="pw",controlspec=cs_PW,
+    action=function(x) engine.pw(x/100) end}
+  cs_REL = controlspec.new(0.1,3.2,'lin',0,1.2,'s')
+  params:add{type="control",id="release",controlspec=cs_REL,
+    action=function(x) engine.release(x) end}
+  cs_CUT = controlspec.new(50,5000,'exp',0,800,'hz')
+  params:add{type="control",id="cutoff",controlspec=cs_CUT,
+    action=function(x) engine.cutoff(x) end}
+  cs_GAIN = controlspec.new(0,4,'lin',0,1,'')
+  params:add{type="control",id="gain",controlspec=cs_GAIN,
+    action=function(x) engine.gain(x) end}
+  cs_PAN = controlspec.new(-1,1, 'lin',0,0,'')
+  params:add{type="control",id="pan",controlspec=cs_PAN,
+    action=function(x) engine.pan(x) end}
+  params:add{type="number",id="detune",min=-100, max=100, default=0}
+
+  hs.init()
+
 	regen()
 	clock.run(tick)
 	clock.run(re)
@@ -206,6 +234,8 @@ function tick()
 			now[1].note = p:get('root')+ ribbon[1].notes[now[1].pos]
 			now[1].on= true
 			out:note_on(now[1].note)
+			local freq = MusicUtil.note_num_to_freq(now[1].note + (params:get("detune")*0.01))
+			engine.hz(freq)
 		else
 			now[1].on= false
 			out:note_off(now[1].note)
