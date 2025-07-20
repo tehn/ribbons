@@ -10,8 +10,11 @@ hs = include('lib/halfsecond')
 MusicUtil = require "musicutil"
 
 a = arc.connect(1)
+g = grid.connect(1)
 out = midi.connect(1)
 p = params
+
+ps=1
 
 notes = {
 	{0, 2, 3, 5, 7, 8, 11, 12},
@@ -22,6 +25,8 @@ notes = {
 	{0, 2, 4, 5, 7, 9, 10, 12},
 	{0, 1, 3, 5, 6, 8, 10, 12}
 }
+
+data_exists = {}
 
 function init()
 	p:add_number("steps","steps",2,48,3)
@@ -59,6 +64,10 @@ function init()
   params:add{type="number",id="detune",min=-100, max=100, default=0}
 
   hs.init()
+
+	for n=1,64 do
+		data_exists[n] = util.file_exists(norns.state.data .. "ribbons-"..string.format("%02d",n)..".pset")
+	end
 
 	regen()
 	clock.run(tick)
@@ -116,6 +125,7 @@ function re()
 		if dirty then
 			dirty = false
 			aredraw()
+			gredraw()
 		end
 		clock.sleep(1/60)
 	end
@@ -223,6 +233,49 @@ function aredraw()
 		a:led(4,(p:get('root')+ 18) % 64 + 1, 15)
 	end
 	a:refresh()
+end
+
+function gredraw()
+	g:all(0)
+	for y=0,3 do
+		for x=1,16 do
+			if data_exists[y*16+x] == true then
+				g:led(x,y+1,3)
+			end
+		end
+	end
+	g:led(ps,1,15)
+
+	for i=1,p:get('steps') do
+		local z=ribbon[1].notes[i]
+		g:led(z%12+1,8-z//12,3)
+	end
+	local z = now[1].note-p:get('root')
+	g:led(z%12+1,8-z//12,15)
+
+	g:refresh()
+end
+
+alt = 0
+mode = 1
+
+function g.key(x,y,z)
+	if y>4 and x==16 then
+		if y==8 then alt = z
+		elseif z==0 then mode=1
+		else mode=9-y end
+	elseif z==1 then
+		if y==1 and alt == 1 then
+			ps=x
+			p:write(ps)
+			data_exists[ps] = true
+			dirty = true
+		elseif y==1 then
+			ps=x
+			p:read(ps)
+			dirty = true
+		end
+	end
 end
 
 function tick()
